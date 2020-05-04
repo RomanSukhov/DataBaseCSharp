@@ -1,0 +1,170 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using MySql.Data.MySqlClient;
+
+namespace WindowsFormData
+{
+    public partial class UserInterface : Form
+    {
+        public UserInterface()
+        {
+            InitializeComponent();
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            Application.Exit();
+        }
+
+        private void label1_Click(object sender, EventArgs e)
+        {
+            db db = new db();
+            db.OpenConnection();
+            db db2 = new db();
+            db2.OpenConnection();
+            if (db.getConnection() == null) MessageBox.Show("Didn't connect!");
+            if (db2.getConnection() == null) MessageBox.Show("Didn't connect!");
+            MySqlCommand count = new MySqlCommand(("SELECT COUNT(*) FROM patients"), db.getConnection());
+            string wr = "Total patients: " + count.ExecuteScalar();
+            string path = @"C:\Users\Роман\Desktop\Report.txt";
+            using (StreamWriter sw = new StreamWriter(path, true, System.Text.Encoding.Default))
+            {
+                sw.WriteLine(wr);
+            }
+            count = new MySqlCommand(("SELECT fullname FROM doctors"), db.getConnection());
+            MySqlDataReader reader = count.ExecuteReader();
+            MySqlCommand us = null;
+            while(reader.Read())
+            {
+                us = new MySqlCommand(("SELECT COUNT(*) FROM patients WHERE Doctors_idDoctors = (SELECT idDoctors FROM doctors WHERE fullname = @fn)"), db2.getConnection());
+                us.Parameters.Add("@fn", MySqlDbType.VarChar).Value = reader[0].ToString();
+                wr = "Name of doctor: " + reader[0].ToString() + ", amount of patients: " + us.ExecuteScalar() + ".";
+                using (StreamWriter sw = new StreamWriter(path, true, System.Text.Encoding.Default))
+                {
+                    sw.WriteLine(wr);
+                }
+            }
+            reader.Close();
+            count = new MySqlCommand(("SELECT nameDiag FROM diagnosis"), db.getConnection());
+            reader = count.ExecuteReader();
+            while (reader.Read())
+            {
+                us = new MySqlCommand(("SELECT COUNT(*) FROM patients WHERE Diagnosis_idDiagnosis = (SELECT idDiagnosis FROM diagnosis WHERE nameDiag = @nd)"), db2.getConnection());
+                us.Parameters.Add("@nd", MySqlDbType.VarChar).Value = reader[0].ToString();
+                wr = "Name of diagnosis: " + reader[0].ToString() + ", number of disease: " + us.ExecuteScalar() + ".";
+                using (StreamWriter sw = new StreamWriter(path, true, System.Text.Encoding.Default))
+                {
+                    sw.WriteLine(wr);
+                }
+            }
+            reader.Close();
+            count = new MySqlCommand(("SELECT fullname, time_of_receipt FROM doctors"), db.getConnection());
+            reader = count.ExecuteReader();
+            using (StreamWriter sw = new StreamWriter(path, true, System.Text.Encoding.Default))
+            {
+                sw.WriteLine("Doctors shedule:");
+            }
+            while (reader.Read())
+            {
+                wr = reader[0].ToString() + " - " + reader[1].ToString();
+                using (StreamWriter sw = new StreamWriter(path, true, System.Text.Encoding.Default))
+                {
+                    sw.WriteLine(wr);
+                }
+            }
+            reader.Close();
+            db.CloseConnection();
+            db2.CloseConnection();
+        }
+
+        private void label2_Click(object sender, EventArgs e)
+        {
+            Patient.Items.Clear();
+            db db = new db();
+            db.OpenConnection();
+            if (db.getConnection() == null) MessageBox.Show("Didn't connect!");
+            MySqlCommand getdiag = new MySqlCommand(("SELECT nameDiag, symptomps, medicines FROM diagnosis WHERE idDiagnosis = (SELECT Diagnosis_idDiagnosis FROM patients WHERE fullname = @idDg)"), db.getConnection());
+            getdiag.Parameters.Add("@idDg", MySqlDbType.VarChar).Value = fullname.Text;
+            MySqlDataReader readerdiag = getdiag.ExecuteReader();
+            readerdiag.Read();
+            string DiagStr = readerdiag[0].ToString();
+            string diagStr1 = readerdiag[1].ToString();
+            string diagStr2 = readerdiag[2].ToString();
+            readerdiag.Close();
+            MySqlCommand command = new MySqlCommand(("SELECT address, data_of_illness FROM patients WHERE fullname = @fn"), db.getConnection());
+            command.Parameters.Add("@fn", MySqlDbType.VarChar).Value = fullname.Text;
+            MySqlDataReader reader = command.ExecuteReader();
+            reader.Read();
+            string EndStr = "Address is " + reader[0].ToString() + ", data of illness is " + reader[1].ToString() + ", diagnosis is " + DiagStr;
+            Patient.Items.Add(EndStr);
+            reader.Close();
+            MySqlCommand getdoc = new MySqlCommand(("SELECT fullname, cabinet, time_of_receipt, idDoctors FROM doctors WHERE idDoctors = (SELECT Doctors_idDoctors FROM patients WHERE fullname = @idDoc)"), db.getConnection());
+            getdoc.Parameters.Add("@idDoc", MySqlDbType.VarChar).Value = fullname.Text;
+            MySqlDataReader readdoc = getdoc.ExecuteReader();
+            readdoc.Read();
+            string idDoc = readdoc[3].ToString();
+            string DocName = "The Doctor is " + readdoc[0].ToString() + ", cabinet is " + readdoc[1].ToString() + ", time of receipt is " + readdoc[2].ToString();
+            readdoc.Close();
+            Patient.Items.Add(DocName);
+            MySqlCommand getpat = new MySqlCommand(("SELECT fullname FROM patients WHERE Doctors_idDoctors = @idDoct"), db.getConnection());
+            getpat.Parameters.Add("@idDoct", MySqlDbType.VarChar).Value = idDoc;
+            MySqlDataReader readpat = getpat.ExecuteReader();
+            Patient.Items.Add("Doctor's patients:\n");
+            while (readpat.Read())
+            {
+                Patient.Items.Add(Convert.ToString(readpat["fullname"]));
+            }
+            readpat.Close();
+            Patient.Items.Add("Symptomps and treatment:\n");
+            Patient.Items.Add(diagStr1);
+            Patient.Items.Add(diagStr2);
+            db.CloseConnection();
+        }
+
+        private void label4_Click(object sender, EventArgs e)
+        {
+            //...
+        }
+
+        private void UserInterface_Load(object sender, EventArgs e)
+        {
+            //...
+        }
+
+        private void label3_Click(object sender, EventArgs e)
+        {
+            db db = new db();
+            db.OpenConnection();
+            if (db.getConnection() == null) MessageBox.Show("Didn't connect!");
+            MySqlCommand getdiag = new MySqlCommand(("SELECT nameDiag FROM diagnosis WHERE idDiagnosis = (SELECT Diagnosis_idDiagnosis FROM patients WHERE fullname = @fn)"), db.getConnection());
+            getdiag.Parameters.Add("@fn", MySqlDbType.VarChar).Value = fnPat.Text;
+            if (getdiag.ExecuteScalar() == null)
+            {
+                string wr = fnPat.Text + ":\n" + "No diagnosis";
+                string path = @"C:\Users\Роман\Desktop\Diagnosis.txt";
+                using (StreamWriter sw = new StreamWriter(path, true, System.Text.Encoding.Default))
+                {
+                    sw.WriteLine(wr);
+                }
+            }
+            else
+            {
+                string wr = fnPat.Text + ":\n" + getdiag.ExecuteScalar();
+                string path = @"C:\Users\Роман\Desktop\Diagnosis.txt";
+                using (StreamWriter sw = new StreamWriter(path, true, System.Text.Encoding.Default))
+                {
+                    sw.WriteLine(wr);
+                }
+            }
+            db.CloseConnection();
+        }
+    }
+}
